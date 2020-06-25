@@ -5,7 +5,7 @@
 * roberta \<CLS\> outputs -> fc softmax
 * roberta ( \<CLS\> outputs + Pooled_outputs) -> fc softmax
 * roberta (last 3 hidden states + Pooled_outputs) -> fc softmax
-* roberta (Pooled_outputs + (outputs(<CLS> + all words) - > BiLSTM -> BiGRU ) ) -> fc softmax
+* roberta (Pooled_outputs + (outputs(\<CLS\> + all words represnetations) - > BiLSTM -> BiGRU ) ) -> fc softmax
 优化器:sgd
  
 ### 😀已完成
