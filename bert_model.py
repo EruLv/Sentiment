@@ -4,6 +4,7 @@ from torch import nn
 
 from transformers import BertModel,RobertaModel
 from transformers import BertConfig, RobertaConfig
+from transformers import BertPreTrainedModel
 
 models = {"bert":BertModel,"roberta": RobertaModel}
 configs = {"bert":BertConfig,"roberta": RobertaConfig}
@@ -123,25 +124,25 @@ class BertBasedSentimentModel2(nn.Module):
 
         return logits
 
-class BertBasedSentimentModel_last3(nn.Module):
+class BertBasedSentimentModel_last3(BertPreTrainedModel):
 
-    def __init__(self, hidden_dim, dropout_prob ,args):
-        super().__init__()
+    def __init__(self, hidden_dim, dropout_prob , config, args):
+        super().__init__(config)
 
         self.args = args
 
         self.num_labels = self.args.num_labels
 
         self.hidden_dim = hidden_dim
-        self.config = configs[args.model_name].from_pretrained(self.args.pretrained_model_name,
-                                                               output_hidden_states=True
-                                                               )
+
         self.bert = models[args.model_name].from_pretrained(self.args.pretrained_model_name,
-                                                            config = self.config)
+                                                            config = config)
 
         self.dropout = nn.Dropout(dropout_prob)
 
         self.fc = nn.Linear(hidden_dim * 4, self.num_labels)
+
+        # self.apply(self.init_weights)
 
     def forward(self, input_ids=None, attention_mask=None):
         bert_output_a, pooled_output_a, hidden_output_a = self.bert(input_ids, attention_mask=attention_mask)
