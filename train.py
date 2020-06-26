@@ -81,13 +81,13 @@ def train(args):
                                                           num_labels=args.num_labels,
                                                           output_hidden_states=True
                                                            )
-    # model = BertBasedSentimentModel(HIDDEN_DIM, DROPOUT_PROB ,args).to(args.device)
-    # model = BertBasedSentimentModel2(HIDDEN_DIM, DROPOUT_PROB ,args).to(args.device)
-    model = BertBasedSentimentModel_last3(HIDDEN_DIM, DROPOUT_PROB ,config, args).to(args.device)
-    # model = BertBasedLSTMGRU(HIDDEN_DIM, LSTM_HIDDEN_DIM, DROPOUT_PROB ,args).to(args.device)
+    model = BertBasedSentimentModel(HIDDEN_DIM, DROPOUT_PROB ,config, args).to(args.device)
+    # model = BertBasedSentimentModel2(HIDDEN_DIM, DROPOUT_PROB ,config, args).to(args.device)
+    # model = BertBasedSentimentModel_last3(HIDDEN_DIM, DROPOUT_PROB ,config, args).to(args.device)
+    # model = BertBasedLSTMGRU(HIDDEN_DIM, LSTM_HIDDEN_DIM, DROPOUT_PROB ,config, args).to(args.device)
 
-    # optimizer = torch.optim.SGD(model.parameters(), lr=args.lr)
-    optimizer = AdamW(model.parameters(), lr=args.lr, eps= args.eps)
+    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr)
+    # optimizer = AdamW(model.parameters(), lr=args.lr, eps= args.eps)
 
     scheduler = get_linear_schedule_with_warmup(optimizer,
                                                 num_warmup_steps=args.warmup_steps,
