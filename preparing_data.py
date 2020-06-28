@@ -4,6 +4,9 @@ from torch.utils.data import Dataset,DataLoader
 from transformers import BertTokenizer,RobertaTokenizer
 import numpy as np
 import argparse
+from sklearn.utils import shuffle
+from tqdm import tqdm
+
 
 tokenizers = {"bert":BertTokenizer,"roberta":RobertaTokenizer}
 
@@ -16,7 +19,7 @@ def get_data(args, data_type):
     else:
         path = path + args.test_file
 
-    return pd.read_csv(path, sep='\t',header=None)
+    return pd.read_csv(path, sep=',')
 
 class DealDataset(Dataset):
     def __init__(self, x, y, mask = None, args = None):
@@ -39,15 +42,17 @@ class dataset():
 
         self.args = args
 
+        self.padding_max = args.max_len
+
         self.data = get_data(args, data_type)
-        self.device = args.device
         self.tokenizer = tokenizers[args.model_name].from_pretrained(args.tokenizer_name)
 
+        self.device = args.device
 
-        self.tok_texts = self.data[0].apply((lambda x:
+        self.tok_texts = self.data['1'].apply((lambda x:
                                          self.tokenizer.encode(x,add_special_tokens=True))).values
 
-        self.labels = self.data[1].values
+        self.labels = self.data['0'].values
 
         self.padded, self.mask= self._padding()
 
@@ -60,7 +65,20 @@ class dataset():
             if len(i) > max_len:
                 max_len = len(i)
 
-        padded = np.array([i + [self.tokenizer.pad_token_id] * (max_len - len(i)) for i in self.tok_texts])
+        # print("max len: ", max_len)
+
+        if max_len > self.padding_max:
+            max_len = self.padding_max
+
+        padded = []
+
+        for i in self.tok_texts:
+            if(len(i) > max_len):
+                padded.append(i[:max_len -1 ] +[i[-1]])
+            else:
+                padded.append(i +  [self.tokenizer.pad_token_id] * (max_len - len(i)))
+
+        padded = np.array(padded)
 
         attention_mask = np.where(padded != self.tokenizer.pad_token_id, 1, 0)    #mask 机制
         return padded, attention_mask
@@ -86,18 +104,44 @@ class text_encoder_decoder():
         decode_texts = [self.tokenizer.decode(x) for x in lst]
         return decode_texts
 
+def split(fn):
+    df = pd.read_csv(fn,sep = '\t')
+    df = shuffle(df)
+
+    df = df.dropna(axis=0)  #删掉空行
+
+    df = df.reset_index(drop=True)
+    df_train = df.loc[0:16000].reset_index(drop=True)
+    df_test = df.loc[16000:18000].reset_index(drop=True)
+    df_valid = df.loc[18000:].reset_index(drop=True)
+    df_train.to_csv("data/train.csv",index=None)
+    df_test.to_csv("data/test.csv",index=None)
+    df_valid.to_csv("data/dev.csv",index=None)
+
+
 
 if __name__ == '__main__':
-    parser=argparse.ArgumentParser()
+    # split("data/data.csv")
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--batch_size', type=int, default=256, help='每批数据的数量')
+    parser.add_argument('--model_name',type=str,default='bert',help='预训练模型名')
+    # parser.add_argument('--tokenizer_name', type=str, default='hfl/chinese-roberta-wwm-ext', help='分词器')
+    parser.add_argument('--tokenizer_name', type=str, default='models/chinese-roberta-wwm-ext', help='分词器')
+    parser.add_argument('--data_path',type=str,default='data/',help='数据集路径')
+    parser.add_argument('--train_file',type=str,default='train.csv',help='训练集文件名')
+    parser.add_argument('--valid_file',type=str,default='dev.csv',help='验证集文件名')
+    parser.add_argument('--test_file',type=str,default='test.csv',help='验证集文件名')
+    parser.add_argument('--max_len',type=int,default=256,help='验证集文件名')
 
-    parser.add_argument('--model_name',type=str,default='bert',help='验证集文件名')
-    parser.add_argument('--pretrained_model_name',type=str,default='bert-base-uncased',help='预训练模型')
-    parser.add_argument('--tokenizer_name', type=str, default='bert-base-uncased', help='分词器')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    parser.add_argument('--device', type = str, default= device)
 
     args = parser.parse_args()
 
-    t = text_encoder_decoder(args)
-    x = t.encode(["a b c d e f","this is a test"])
-    y = t.decode(x)
-    print(x)
-    print(y)
+    dt = dataset("train",args)
+    data_loader = dt.get_data_loader(args.batch_size)
+
+    for index, data in enumerate(tqdm(data_loader)):
+        inputs, labels, masks = data
+        tqdm.write(str(index))
+
