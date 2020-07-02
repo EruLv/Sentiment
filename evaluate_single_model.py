@@ -1,18 +1,30 @@
 import torch
-from torch import nn
 import argparse
-from preparing_data import dataset
+from preparing_data import DataSet
 import numpy as np
 from tqdm import tqdm
 
 def predict(outputs):
-
+    '''
+    Descriptions: 预测是第几类
+    Args:
+        outputs: 模型的logits,输出
+    Returns:
+        preds:最大概率对应下标
+    '''
     preds = torch.argmax(outputs,dim=1) #每一行的最大值下标
-
     return preds
 
 
 def test(model, data_loader, args):
+    '''
+    Descriptions:
+        测试模型的4个指标acc,precision,recall,F1
+        不把聚类生成的类合并
+    Args:
+        model:已经训练好的模型
+        data_loader: 测试数据的迭代器
+    '''
     hit = 0
     total = 0
     res_preds = []
@@ -21,6 +33,7 @@ def test(model, data_loader, args):
         for i, data in enumerate(tqdm(data_loader)):
 
             inputs, labels, masks = data
+
             outputs = model(inputs, attention_mask=masks)
             preds = predict(outputs)
 
@@ -64,6 +77,14 @@ def test(model, data_loader, args):
               .format(acc, Macro_R, Macro_R, Macro_F))
 
 def test_ingored_cluster(model, data_loader, args):
+    '''
+    Descriptions:
+        测试模型的4个指标acc,precision,recall,F1
+        把聚类生成的类合并，比如，1聚类成为1,2,3,4类，测试时讲1,2,3,4和并为1类
+    Args:
+        model:已经训练好的模型
+        data_loader: 测试数据的迭代器
+    '''
     res_preds = []
     res_labels = []
     with torch.no_grad():
@@ -117,24 +138,27 @@ def test_ingored_cluster(model, data_loader, args):
               .format(acc, Macro_P, Macro_R, Macro_F))
 
 def main(args):
-    model  = torch.load(args.model_path).to(args.device)
-    test_data = dataset('test',args)
-    test_data_loader = test_data.get_data_loader()
-    test(model,test_data_loader, args)
-    test_ingored_cluster(model,test_data_loader, args)
+
+    model  = torch.load(args.model_path).to(args.device)    #加载模型
+    test_data = DataSet('test',args)    #加载测试集数据集
+    test_data_loader = test_data.get_data_loader()  #获取测试集的迭代器
+    test(model,test_data_loader, args)  #测试指标
+    # test_ingored_cluster(model,test_data_loader, args)    #测试指标，合并聚类生成的类
 
 if __name__ == '__main__':
+
     parser=argparse.ArgumentParser()
     parser.add_argument('--batch_size',type=int,default=8,help = '每批数据的数量')
-    parser.add_argument('--model_name',type=str,default='bert',help = '模型类别')
-    parser.add_argument('--model_path',type=str,default='models/best_valid_model_4.pt',help = '模型位置')
+    parser.add_argument('--model_name',type=str,default='bert',help = '模型类别，中文统统用bert')
+    parser.add_argument('--model_path',type=str,default='models/last_model_1.pt',help = '模型存储位置')
     parser.add_argument('--tokenizer_name', type=str, default='models/chinese-roberta-wwm-ext', help='分词器')
-    parser.add_argument('--data_path', type=str, default='data/', help='数据集路径')
+    parser.add_argument('--data_path', type=str, default='data/raw/', help='数据集路径')
     parser.add_argument('--test_file', type=str, default='test.csv', help='测试集文件名')
-    parser.add_argument('--max_len',type=int,default=128,help='验证集文件名')
+    parser.add_argument('--max_len',type=int,default=128,help='最大补全长度')
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     parser.add_argument('--device', type = str, default= device)
+
     args = parser.parse_args()
 
     main(args)

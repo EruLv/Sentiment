@@ -10,8 +10,21 @@ models = {"bert":BertModel,"roberta": RobertaModel}
 configs = {"bert":BertConfig,"roberta": RobertaConfig}
 
 class BertBasedSentimentModel(BertPreTrainedModel):
+
     def __init__(self, hidden_dim, dropout_prob , config, args):
         super().__init__(config)
+        '''
+        Descriptions: 模型1,利用bert <CLS> -> fc  
+
+        Args:
+            hidden_dim: bert的隐藏层维度，base版本对应768
+            dropout_prob: drop out 概率
+            config: bert :BertConfig类
+            args: 训练参数，主要用到:
+                args.model_name: "bert"or"roberta",如果chinese-roberta-wwm-ext模型，一律使用bert
+                self.args.pretrained_model_name: 预训练模型的名字/地址
+                args.num_labels: 预测的类别数
+        '''
         self.args = args
 
         self.config = config
@@ -24,7 +37,13 @@ class BertBasedSentimentModel(BertPreTrainedModel):
         self.fc = nn.Linear(hidden_dim, self.num_labels)
 
     def forward(self, input_ids=None, attention_mask=None):
-
+        '''
+        Args:
+            input_ids: 输入的向量，维度[batch size, max_len]
+            attention_mask: mask矩阵，维度同input_ids,0表示padded index,1表示其他
+        Returns:
+            logits: 预测向量,维度[batch size, num_labels]
+        '''
         x = self.bert(input_ids, attention_mask=attention_mask)
         # x[0]: (batch_size, src_len, hidden_size) : (8,67,768)
 
@@ -40,6 +59,19 @@ class BertBasedSentimentModel(BertPreTrainedModel):
 class BertBasedLSTMGRU(BertPreTrainedModel):
     def __init__(self, hidden_dim,lstm_hidden_dim, dropout_prob , config,args):
         super().__init__(config)
+        '''
+        Descriptions: 模型4
+            利用bert P_o + ( bert outputs -> BiLSTM -> BIGRU ->(last hidden outputs, avg pool, max_pool)) -> fc  
+        Args:
+            hidden_dim: bert的隐藏层维度，base版本对应768
+            lstm_hidden_dim: BiRNN的隐藏层数量，当前为512
+            dropout_prob: drop out 概率
+            config: bert :BertConfig类
+            args: 训练参数，主要用到:
+                args.model_name: "bert"or"roberta",如果chinese-roberta-wwm-ext模型，一律使用bert
+                self.args.pretrained_model_name: 预训练模型的名字/地址
+                args.num_labels: 预测的类别数
+        '''
 
         self.args = args
 
@@ -64,7 +96,9 @@ class BertBasedLSTMGRU(BertPreTrainedModel):
         self.fc = nn.Linear(lstm_hidden_dim * 6 + hidden_dim , self.num_labels)
 
     def forward(self, input_ids=None, attention_mask=None):
-
+        '''
+        同模型1
+        '''
         outputs = self.bert(input_ids, attention_mask=attention_mask)
 
         bert_output = outputs[0]
@@ -98,7 +132,12 @@ class BertBasedSentimentModel2(BertPreTrainedModel):
 
     def __init__(self, hidden_dim, dropout_prob , config,args):
         super().__init__(config)
-
+        '''
+        Descriptions: 模型2
+            利用bert P_o + <CLS> -> fc  
+        Args:
+            同模型1
+        '''
         self.args = args
 
         self.num_labels = self.args.num_labels
@@ -114,6 +153,9 @@ class BertBasedSentimentModel2(BertPreTrainedModel):
         self.fc = nn.Linear(hidden_dim * 2, self.num_labels)
 
     def forward(self, input_ids=None, attention_mask=None):
+        '''
+        同模型1
+        '''
         outputs = self.bert(input_ids, attention_mask=attention_mask)
 
         bert_output = outputs[0]
@@ -132,7 +174,12 @@ class BertBasedSentimentModel_last3(BertPreTrainedModel):
 
     def __init__(self, hidden_dim, dropout_prob , config, args):
         super().__init__(config)
-
+        '''
+        Descriptions: 模型2
+            利用bert P_o + (最后最后三个隐藏层<CLS>对应的输出(第0个位置)) -> fc  
+        Args:
+            同模型1
+        '''
         self.args = args
 
         self.num_labels = self.args.num_labels
@@ -148,6 +195,9 @@ class BertBasedSentimentModel_last3(BertPreTrainedModel):
 
 
     def forward(self, input_ids=None, attention_mask=None):
+        '''
+        同模型1
+        '''
         bert_output_a, pooled_output_a, hidden_output_a = self.bert(input_ids, attention_mask=attention_mask)
         last_cat = torch.cat(
             (pooled_output_a, hidden_output_a[-1][:, 0], hidden_output_a[-2][:, 0],
@@ -157,3 +207,5 @@ class BertBasedSentimentModel_last3(BertPreTrainedModel):
         logits = self.fc(last_cat)
 
         return logits
+
+
